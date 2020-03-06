@@ -1,0 +1,258 @@
+---
+title: "Case Study"
+author: "Aniketh V, Kenneth P"
+date: "3/5/2020"
+output: html_document
+---
+
+# Beers and Breweries - Budweiser
+## Introduction:
+
+Greetings! Today we will be discussing "Beers and Breweries" within the United States. We will be covering what we can infer about the data points at hand as well as interesting key topics that you might find valuable for the business. We were able to develop some code to analyze this data. Please be advised that R was used to write the code for statistics and to visualize the data. At the end of this document, you will leave with enough sustainable information.
+
+## Lets set up our environment
+```{r}
+#Load required libraries
+library(ggplot2)
+library(dplyr)
+library(tidyr)
+library(stringr)
+library(magrittr)
+library(maps)
+library(mapproj)
+library(maptools)
+library(GGally)
+library(ggalt)
+library(mice)
+library(e1071)
+library(class)
+library(caret)
+
+#Import the data
+beers = read.csv("/Users/password1234/Documents/Doing_Data_Science/MSDS_6306_Doing-Data-Science/Unit\ 8\ and\ 9\ Case\ Study\ 1/Beers.csv", header = TRUE)
+breweries = read.csv("/Users/password1234/Documents/Doing_Data_Science/MSDS_6306_Doing-Data-Science/Unit\ 8\ and\ 9\ Case\ Study\ 1/Breweries.csv", header = TRUE)
+```
+
+## Part 1: How many breweries are present in each state?
+The purpose of this block is to find out how many breweries are present per each state. To that we need to utilize the breweries file to obtain and visually produce this information.
+```{r}
+#Lets first create a new data frame that only includes the number of breweries per state.
+breweriesMapData = count(breweries, State)
+#The count column was produced as a random variable, need to change that to a name thats more clean
+colnames(breweriesMapData)[2] = "Number_of_Breweries"
+#Lets visualize the data in a nice bar chart
+breweriesMapData %>% ggplot(aes(x = State, y = Number_of_Breweries, fill = State)) + geom_bar(stat = "identity", width = .5) +
+  labs(title = "Breweries", subtitle = "State and # of Breweries", caption = "breweries") + theme(axis.text.x = element_text(angle = 65, vjust = 0.6), legend.position = "none")
+```
+
+## Part 2: Lets Merge both data sets together
+In order to get the best out of this evaluation, we will need to merge both the datasets together so it can be presentable. The datasets were joined by an indicator, in this case the common indicator is "Brew_ID".
+```{r}
+#Need to change the column name for Breweries ID to a common name.
+colnames(beers)[5] = "Brew_ID"
+
+#Combining to one dataset called beersAndBrew
+beersAndBrew = full_join(beers, breweries, by = "Brew_ID")
+colnames(beersAndBrew)[1] = "Beer_Name"
+colnames(beersAndBrew)[8] = "Brewery_Name"
+
+#Print the first 6 observations
+head(beersAndBrew, 6)
+#Print the last 6 Observations
+tail(beersAndBrew, 6)
+```
+
+## Part 3: What to do with missing data?
+Missing data can be cumbersome, what we did to replace the missing values is use the mice function which computes the mean/median/mode of the columns at hand. This is handy as it evaluates the data based on similar observations and replace the missing values with the closest match (mean, median, or mode).
+```{r}
+#Need to create a new data frame with just ABV and IBU for faster compute time
+ABVandIBU = beersAndBrew %>% select(ABV, IBU)
+
+#Wrapper on MICE function which makes the response time for the function much faster. Adds an extra argument called droplist, where you can pass a character vector of predictor variables that you do not want used in the right-hand-side of the imputation formulas
+ImputeData = function(data, m = 10, maxit = 15, droplist = NULL)
+{
+  if(length(intersect(names(data), droplist)) < length(droplist)) 
+  {
+    stop("Droplist variables not found in data set")
+  }
+  predictorMatrix = (1 - diag(1,ncol(data)))
+  for (term in droplist)
+  {
+    drop.index = which(names(data) == term)
+      predictorMatrix[, drop.index] = 0
+  }
+  mids.out = mice(data, m = m, maxit = maxit, predictorMatrix = predictorMatrix)
+  return(mids.out)
+}
+
+imp = ImputeData(ABVandIBU, m = 1, maxit = 10)
+ABVandIBU = complete(imp)
+
+beersAndBrew = cbind(beersAndBrew, ABVandIBU)
+#Rename to delete columns
+colnames(beersAndBrew)[3] = "a"
+colnames(beersAndBrew)[4] = "b"
+beersAndBrew = select(beersAndBrew, -c(3:4))
+#Reorder data
+beersAndBrew = beersAndBrew[c(1,2,9,10,3,4,5,6,7,8)]
+```
+
+## Part 4: Computing the median alcohol content and international bitterness for each state
+We want to see what the median ABV and IBU (Bitterness) for each state. To do this we need to summarise the data and be able to present in a bar graph format.In the bar charts we can see the frequency per state for the medians per the levels (ABV, IBU).
+```{r}
+#Select the data points needed and create a new data frame, in this case by median
+byState = beersAndBrew %>% select(ABV, IBU, State) %>% group_by(State) %>% summarise(MedianABV = median(ABV), MedianIBU = median(IBU))
+
+#Plot the data frame for ABV
+byState %>% ggplot(aes(x = State, y = MedianABV, fill = State)) + geom_bar(stat = "identity", width = .5) + theme(legend.position = "none") + ggtitle("Barplot for Median ABV per State")
+
+#Plot the data frame for IBU
+byState %>% ggplot(aes(x = State, y = MedianIBU, fill = State)) + geom_bar(stat = "identity", width = .5) + theme(legend.position = "none") + ggtitle("Barplot for Median IBU per State")
+```
+
+##Part 5: The State with the max alcoholic beer and the state that produces the most bitter beer.
+The idea for this block is to figure out which state produces the most alcoholic beeer as well as the state with the bitterist beer.
+As per the consensus:
+IBU: Oregon and Hawaii - 138
+ABV: Colorado - 12.8%
+```{r}
+#Finding the highest value for IBU and then tracing the state
+max(beersAndBrew$IBU)
+#Filter the State by above value
+beersAndBrew %>% select(State, IBU) %>% filter(IBU == 138)
+
+#Finding the highest value for ABV and then tracing the state
+max(beersAndBrew$ABV)
+#Filter the state with above value
+beersAndBrew %>% select(State, ABV) %>% filter(ABV == 0.128)
+```
+
+#Part 6: Summary statistics for ABV
+Figuring out the distribution and the statistics for alcohol content is also key. Especially when drinking beer, the higher the alcohol content the more the effects are felt. It is an important characteristic of a beer. Let dwelve into this variable.
+
+As per the below histogram and summary we can see the the distribution is skewed slightly to the right but not signifcantly. This tells us the mean is larger than the median ever so slightly. In response to all the beers we can see that the majority of the beers hover around .04 to .065. 
+```{r}
+#Lets get the summary
+summary(beersAndBrew$ABV)
+
+#Lets find the distribution
+beersAndBrew %>% ggplot(aes(x = ABV)) + geom_histogram(fill = "red", color = "black") + stat_function(fun = dnorm, args = list(mean = mean(beersAndBrew$ABV), sd = sd(beersAndBrew$ABV))) + ggtitle("Distribution of ABV") + ylab("Frequency")
+```
+
+## Part 7: Relationship between ABV and IBU
+Is there any relationship between ABV and IBU? This is something the below code chunk can help address. An assumption that can be made is that as ABV rises so does bitterness and vice versa. In real world scenarios, its better not to assume.
+
+The below scatter plot shows that there is some kind of relationship between ABV and IBU. Based on this graph its hard to justify whether ABV percentage leads to increased bitterness. It seems that a vast majority of beers in the 5 to 10 percent range have high bitterness. However, there are some in which high ABV attains to a high bitterness level.
+
+```{r}
+#Scatter Graph
+beersAndBrew %>% ggplot(aes(x = IBU, y = ABV)) + geom_point(position = "jitter") + geom_smooth(method = "loess", se=F, color = "blue") +
+  xlim(c(0, 150)) + ylim(c(0, .15)) + ggtitle("Scatter Graph of Relation Between IBU and ABV")
+```
+
+## Part 8: K-NN in respects to ABV and IBU based on type of beer
+One of the few takeaways for this presentation is to investigate the difference between IPA's and Ale's based on ABV and IBU. If we feed the training set with a beer with both ABV and IBU will it correctly classify the beer type? For the most part it does. If you feed the model specific values then the KNN algorithm correctly classify the right type based on its nearest neigbor.
+
+The accuracy is not as strong as one would hope, but its not bad either. Based on the train and test split there seems to be more Ale's than IPA's. Initially, as k rises so does the accuracy; as it reaches into the teens the accuracy tapers off to stay around 75%. This data could change based on more IPA's being produced. As of right now the Ales far outweigh the IPA. In order to achieve 100% accuracy we need more equal number of beers per type. 
+```{r}
+#Split data to two sets that classify IPA and Ales
+IPABeers = beersAndBrew %>% select(Beer_Name, ABV, IBU, Style) %>% filter(str_detect(Style, "IPA"))
+AleBeers = beersAndBrew %>% select(Beer_Name, ABV, IBU, Style) %>% filter(str_detect(Style, "Ale"))
+#Create new column for type
+IPABeers$Type = "IPA"
+AleBeers$Type = "Ale"
+
+#Combine into one for KNN classification
+beersALEIPA = rbind(IPABeers, AleBeers)
+#plot
+beersALEIPA %>% ggplot(aes(x = ABV, y = IBU, color = Type)) + geom_point()
+
+#Start KNN inital test by feeding a random ABV and IBU
+beerTest = data.frame(ABV = 0.05, IBU = 45)
+knn(beersALEIPA[,2:3], beerTest, beersALEIPA$Type, k = 7, prob = TRUE)
+
+#Train data set and test data set, evaluate with both
+set.seed(6)
+splitPerc = .70
+trainIndices = sample(1:dim(beersALEIPA)[1], round(splitPerc * dim(beersALEIPA)[1]))
+train = beersALEIPA[trainIndices,]
+test = beersALEIPA[-trainIndices,]
+
+# k = 3
+classifications = knn(train[, c(2,3)], test[, c(2,3)], train$Type, prob = TRUE, k = 3)
+table(classifications, test$Type)
+confusionMatrix(table(classifications, test$Type))
+
+# k = 7
+classifications = knn(train[, c(2,3)], test[, c(2,3)], train$Type, prob = TRUE, k = 7)
+table(classifications, test$Type)
+confusionMatrix(table(classifications, test$Type))
+
+#k = 13
+classifications = knn(train[, c(2,3)], test[, c(2,3)], train$Type, prob = TRUE, k = 13)
+table(classifications, test$Type)
+confusionMatrix(table(classifications, test$Type))
+
+#Now going to loop through more than one k and find the average
+iterations = 500
+numks = 30
+
+masterAcc = matrix(nrow = iterations, ncol = numks)
+  
+for(j in 1:iterations)
+{
+accs = data.frame(accuracy = numeric(30), k = numeric(30))
+trainIndices = sample(1:dim(beersALEIPA)[1], round(splitPerc * dim(beersALEIPA)[1]))
+train = beersALEIPA[trainIndices,]
+test = beersALEIPA[-trainIndices,]
+for(i in 1:numks)
+{
+  classifications = knn(train[, c(2,3)], test[, c(2,3)], train$Type, prob = TRUE, k = i)
+  table(classifications, test$Type)
+  CM = confusionMatrix(table(classifications,test$Type))
+  masterAcc[j,i] = CM$overall[1]
+}
+
+}
+
+MeanAcc = colMeans(masterAcc)
+
+plot(seq(1,numks,1),MeanAcc, type = "l")
+```
+
+## Part 9: Supplemental and Bonus information
+As a business we would like to see in what areas its best to improve on. As per that note, we decided to give more supplemental information that can help drive sales in some regard.
+
+The below illustrates which region in the US that we see the most IPA beers brewed. It would be best to see this visually, therefore we created a heat map that indicates which regions IPA beer thrive. As per part 8, there were more Ale beers then there were IPA's. I believe IPAs are still not as popular as Ale's because of its higher ABV and bitterness. IPA beers provide more bang for the buck and it should definitely be looked into where they tend to thrive and which areas it can improve. The output below should tell us indirectly which area drinks more IPA's.
+
+```{r}
+#Re-initalize the IPA and Ale beers data frame with state
+IPABeers = beersAndBrew %>% select(Beer_Name, ABV, IBU, Style, State) %>% filter(str_detect(Style, "IPA"))
+AleBeers = beersAndBrew %>% select(Beer_Name, ABV, IBU, Style, State) %>% filter(str_detect(Style, "Ale"))
+
+#replace all white spaces in states otherwise it will not run properly
+IPABeers$State =  str_replace(IPABeers$State, " ", "")
+
+#need to convert abbreviation for state to name
+library(openintro)
+
+#Load above library to use function abbr2state and create new column for state name
+IPABeers$State_Name = abbr2state(IPABeers$State)
+#make lowercase for state names as map package will not work
+IPABeers$State_Name = tolower(IPABeers$State_Name)
+
+#Count IPA Beers by state
+NumberStates = count(IPABeers, State)
+
+#Create state data frame for United States map
+states = map_data("state")
+map.df = merge(states, IPABeers, by.x = "region", by.y = "State_Name", all.x = T)
+map.df = merge(NumberStates, map.df, by = "State")
+map.df = map.df[order(map.df$order),]
+colnames(map.df)[2] = "Amount"
+
+#Create heat map on US states
+map.df %>% ggplot(aes(x = long, y = lat, group = group)) + geom_polygon(aes(fill = Amount)) + geom_path() +
+  scale_fill_gradientn(colours = rev(heat.colors(10)), na.value = "grey90") + coord_map() + ggtitle("Heat Map of IPA Beers Brewed")
+```
+Based on the heat map, it does look like IPA beers are slightly more dominant on the western side of North America. However, it does look like the more eastern states consume IPA beers as well, compared to the south and midwest. Its more profitable to venture with new IPA products in the West and some states in the East.
