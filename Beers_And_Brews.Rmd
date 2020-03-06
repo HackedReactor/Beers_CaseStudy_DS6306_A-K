@@ -151,7 +151,7 @@ beersAndBrew %>% ggplot(aes(x = IBU, y = ABV)) + geom_point(position = "jitter")
 ```
 
 ## Part 8: K-NN in respects to ABV and IBU based on type of beer
-One of the few takeaways for this presentation is to investigate the difference between IPA's and Ale's based on ABV and IBU. If we feed the training set with a beer with both ABV and IBU will it correctly classify the beer type? For the most part it does. If you feed the model specific values then the KNN algorithm correctly classify the right type based on its nearest neigbor.
+One of the few takeaways for this presentation is to investigate the difference between IPA's and Ale's based on ABV and IBU. If we feed the training set with a beer with both ABV and IBU will it correctly classify the beer type? For the most part it does. If you feed the model specific values then the KNN algorithm correctly classify the right type based on its nearest neigbor. In this scenario, IPA has a higher ABV and IBU compared to Ale's. 
 
 The accuracy is not as strong as one would hope, but its not bad either. Based on the train and test split there seems to be more Ale's than IPA's. Initially, as k rises so does the accuracy; as it reaches into the teens the accuracy tapers off to stay around 75%. This data could change based on more IPA's being produced. As of right now the Ales far outweigh the IPA. In order to achieve 100% accuracy we need more equal number of beers per type. 
 ```{r}
