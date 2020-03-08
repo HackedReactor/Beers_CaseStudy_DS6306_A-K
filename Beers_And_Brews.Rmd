@@ -155,46 +155,39 @@ One of the few takeaways for this presentation is to investigate the difference 
 
 The accuracy is not as strong as one would hope, but its not bad either. Based on the train and test split there seems to be more Ale's than IPA's. Initially, as k rises so does the accuracy; as it reaches into the teens the accuracy tapers off to stay around 75%. This data could change based on more IPA's being produced. As of right now the Ales far outweigh the IPA. In order to achieve 100% accuracy we need more equal number of beers per type. 
 ```{r}
+library(class)
+library(caret)
+library(e1071)
 #Create dataset with only IPAs and Ales.
-beersALEIPA <- Beers %>% select(Name, ABV, IBU, Style) %>% filter(str_detect(Style, "(IPA|Ale)"))
+beersALEIPA <- Beers %>% select(Name, ABV, IBU, Style) %>% filter(!is.na(IBU)) %>% filter(str_detect(Style, "(IPA|Ale)"))
 #Create new column for type
 beersALEIPA <- beersALEIPA %>% mutate(IPAorAle = ifelse(grepl("IPA", beersALEIPA$Style),"IPA","Ale"))
-
-#Combine into one for KNN classification
-beersALEIPA = rbind(IPABeers, AleBeers)
 #plot
-beersALEIPA %>% ggplot(aes(x = ABV, y = IBU, color = Type)) + geom_point()
-
+beersALEIPA %>% ggplot(aes(x = ABV, y = IBU, color = IPAorAle)) + geom_point()
 #Start KNN inital test by feeding a random ABV and IBU
 beerTest = data.frame(ABV = 0.05, IBU = 45)
-knn(beersALEIPA[,2:3], beerTest, beersALEIPA$Type, k = 7, prob = TRUE)
-
+knn(beersALEIPA[,2:3], beerTest, beersALEIPA$IPAorAle, k = 7, prob = TRUE)
 #Train data set and test data set, evaluate with both
 set.seed(6)
 splitPerc = .70
 trainIndices = sample(1:dim(beersALEIPA)[1], round(splitPerc * dim(beersALEIPA)[1]))
 train = beersALEIPA[trainIndices,]
 test = beersALEIPA[-trainIndices,]
-
 # k = 3
-classifications = knn(train[, c(2,3)], test[, c(2,3)], train$Type, prob = TRUE, k = 3)
-table(classifications, test$Type)
-confusionMatrix(table(classifications, test$Type))
-
+classifications = knn(train[, c(2,3)], test[, c(2,3)], train$IPAorAle, prob = TRUE, k = 3)
+table(classifications, test$IPAorAle)
+confusionMatrix(table(classifications, test$IPAorAle))
 # k = 7
-classifications = knn(train[, c(2,3)], test[, c(2,3)], train$Type, prob = TRUE, k = 7)
-table(classifications, test$Type)
-confusionMatrix(table(classifications, test$Type))
-
+classifications = knn(train[, c(2,3)], test[, c(2,3)], train$IPAorAle, prob = TRUE, k = 7)
+table(classifications, test$IPAorAle)
+confusionMatrix(table(classifications, test$IPAorAle))
 #k = 13
-classifications = knn(train[, c(2,3)], test[, c(2,3)], train$Type, prob = TRUE, k = 13)
-table(classifications, test$Type)
-confusionMatrix(table(classifications, test$Type))
-
+classifications = knn(train[, c(2,3)], test[, c(2,3)], train$IPAorAle, prob = TRUE, k = 13)
+table(classifications, test$IPAorAle)
+confusionMatrix(table(classifications, test$IPAorAle))
 #Now going to loop through more than one k and find the average
 iterations = 500
 numks = 30
-
 masterAcc = matrix(nrow = iterations, ncol = numks)
   
 for(j in 1:iterations)
@@ -205,16 +198,13 @@ train = beersALEIPA[trainIndices,]
 test = beersALEIPA[-trainIndices,]
 for(i in 1:numks)
 {
-  classifications = knn(train[, c(2,3)], test[, c(2,3)], train$Type, prob = TRUE, k = i)
-  table(classifications, test$Type)
-  CM = confusionMatrix(table(classifications,test$Type))
+  classifications = knn(train[, c(2,3)], test[, c(2,3)], train$IPAorAle, prob = TRUE, k = i)
+  table(classifications, test$IPAorAle)
+  CM = confusionMatrix(table(classifications,test$IPAorAle))
   masterAcc[j,i] = CM$overall[1]
 }
-
 }
-
 MeanAcc = colMeans(masterAcc)
-
 plot(seq(1,numks,1),MeanAcc, type = "l")
 ```
 
