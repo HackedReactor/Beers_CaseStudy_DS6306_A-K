@@ -218,7 +218,7 @@ MeanAcc = colMeans(masterAcc)
 plot(seq(1,numks,1),MeanAcc, type = "l")
 ```
 
-## Part 9: Supplemental and Bonus information
+## Part 9: Supplemental and Bonus information (Aniketh)
 As a business we would like to see in what areas its best to improve on. As per that note, we decided to give more supplemental information that can help drive sales in some regard.
 
 The below illustrates which region in the US that we see the most IPA beers brewed. It would be best to see this visually, therefore we created a heat map that indicates which regions IPA beer thrive. As per part 8, there were more Ale beers then there were IPA's. I believe IPAs are still not as popular as Ale's because of its higher ABV and bitterness. IPA beers provide more bang for the buck and it should definitely be looked into where they tend to thrive and which areas it can improve. The output below should tell us indirectly which area drinks more IPA's.
@@ -254,3 +254,60 @@ map.df %>% ggplot(aes(x = long, y = lat, group = group)) + geom_polygon(aes(fill
   scale_fill_gradientn(colours = rev(heat.colors(10)), na.value = "grey90") + coord_map() + ggtitle("Heat Map of IPA Beers Brewed")
 ```
 Based on the heat map, it does look like IPA beers are slightly more dominant on the western side of North America. However, it does look like the more eastern states consume IPA beers as well, compared to the south and midwest. Its more profitable to venture with new IPA products in the West and some states in the East.
+
+## Part 9b: Supplemental and Bonus information (Kenneth)
+As a business person, one may also want to know which type of beer is more often produced in which part of the country. This data may be necessary when attempting to market to a specific segment of the U.S. One could easily compare the most common beer produced with the sales data from eahc state to determine if different production choices should be made.
+
+For this presentation of data we also chose a heat map, detailing not the count but the most common beer produced in each state. Please note that the decision of how to break down each category is not authoritative, and different data may be obtained from a different set of aggragations.
+
+```{r}
+#Classify beers into types for use in aggragation. The code executes checks in order on each line.
+Beers_Breweries <- Beers_Breweries %>% mutate(StyleCategory = 
+  case_when(str_detect(Beers_Breweries$Style, "IPA") ~ "IPA",
+  str_detect(Beers_Breweries$Style, "Wheat Ale") ~ "Wheat Ale",
+  str_detect(Beers_Breweries$Style, "APA") ~ "APA",
+  str_detect(Beers_Breweries$Style, "Strong Ale") ~ "Strong Ale",
+  str_detect(Beers_Breweries$Style, "Dark Ale") ~ "Dark Ale",
+  str_detect(Beers_Breweries$Style, "Mild Ale") ~ "Mild Ale",
+  str_detect(Beers_Breweries$Style, "Old Ale") ~ "Old Ale",
+  str_detect(Beers_Breweries$Style, "Farmhouse Ale") ~ "Ale",
+  str_detect(Beers_Breweries$Style, "Ale") ~ "Ales(Other)",
+  str_detect(Beers_Breweries$Style, "Lager") ~ "Lager",
+  str_detect(Beers_Breweries$Style, "Barleywine") ~ "Barleywine",
+  str_detect(Beers_Breweries$Style, "Liquor") ~ "Liquor",
+  str_detect(Beers_Breweries$Style, "Pilsner") ~ "Pilsner",
+  str_detect(Beers_Breweries$Style, "Porter") ~ "Porter",
+  str_detect(Beers_Breweries$Style, "Stout") ~ "Stout",
+  str_detect(Beers_Breweries$Style, "Beer") ~ "Beer",
+  str_detect(Beers_Breweries$Style, "Cider") ~ "Cider",
+  str_detect(Beers_Breweries$Style, "Lager") ~ "Lager",
+  str_detect(Beers_Breweries$Style, "Bitter") ~ "Bitter",
+  TRUE ~ "Other/Unknown"))
+
+
+#find the number of each type of beer manufactured in each state.
+BeerTypes_State <- Beers_Breweries %>% group_by(State,StyleCategory) %>% summarize(Beers = n())
+
+#Find only the top produced beer in each state.
+MostCommonBeer <- BeerTypes_State %>% group_by(State) %>% top_n(1,Beers)
+
+#replace all white spaces in states otherwise it will not run properly
+MostCommonBeer$State =  str_replace(MostCommonBeer$State, " ", "")
+#need to convert abbreviation for state to name
+library(openintro)
+#Load above library to use function abbr2state and create new column for state name
+MostCommonBeer$State_Name = abbr2state(MostCommonBeer$State)
+#make lowercase for state names as map package will not work
+MostCommonBeer$State_Name = tolower(MostCommonBeer$State_Name)
+#Count IPA Beers by state
+NumberStates = count(MostCommonBeer, State)
+#Create state data frame for United States map
+states = map_data("state")
+map.df = merge(states, MostCommonBeer, by.x = "region", by.y = "State_Name", all.x = T)
+map.df = merge(NumberStates, map.df, by = "State")
+map.df = map.df[order(map.df$order),]
+#Create heat map on US states
+map.df %>% ggplot(aes(x = long, y = lat, group = group)) + geom_polygon(aes(fill = StyleCategory)) + geom_path() + coord_map() + ggtitle("Heat Map of Most Common Beer Type")
+
+```
+Based on the heat map, it appears that the most commonly produced beers across the majority of the states are the IPAs. Within the "Other/Unknown" category were placed the specialized beers with foreign names or single word names. Notably, only Wisconsin had a majoriy of beer types produced as "Lagers".
