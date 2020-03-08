@@ -155,12 +155,10 @@ One of the few takeaways for this presentation is to investigate the difference 
 
 The accuracy is not as strong as one would hope, but its not bad either. Based on the train and test split there seems to be more Ale's than IPA's. Initially, as k rises so does the accuracy; as it reaches into the teens the accuracy tapers off to stay around 75%. This data could change based on more IPA's being produced. As of right now the Ales far outweigh the IPA. In order to achieve 100% accuracy we need more equal number of beers per type. 
 ```{r}
-#Split data to two sets that classify IPA and Ales
-IPABeers = beersAndBrew %>% select(Beer_Name, ABV, IBU, Style) %>% filter(str_detect(Style, "IPA"))
-AleBeers = beersAndBrew %>% select(Beer_Name, ABV, IBU, Style) %>% filter(str_detect(Style, "Ale"))
+#Create dataset with only IPAs and Ales.
+beersALEIPA <- Beers %>% select(Name, ABV, IBU, Style) %>% filter(str_detect(Style, "(IPA|Ale)"))
 #Create new column for type
-IPABeers$Type = "IPA"
-AleBeers$Type = "Ale"
+beersALEIPA <- beersALEIPA %>% mutate(IPAorAle = ifelse(grepl("IPA", beersALEIPA$Style),"IPA","Ale"))
 
 #Combine into one for KNN classification
 beersALEIPA = rbind(IPABeers, AleBeers)
